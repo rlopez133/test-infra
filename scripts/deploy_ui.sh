@@ -18,17 +18,19 @@ print_log "Starting ui"
 ${CONTAINER_COMMAND} run --pull=always --rm quay.io/ocpmetal/ocp-metal-ui:${DEPLOY_TAG} /deploy/deploy_config.sh -i quay.io/ocpmetal/ocp-metal-ui:${DEPLOY_TAG} > ${UI_DEPLOY_FILE}
 kubectl --kubeconfig=${KUBECONFIG} apply -f ${UI_DEPLOY_FILE}
 
-print_log "Config firewall"
-sudo systemctl start firewalld
-sudo firewall-cmd --zone=public --permanent --add-port=${UI_PORT}/tcp
-sudo firewall-cmd --reload
+if  [ -z "${NO_EXTERNAL_PORT}" ];then
+  print_log "Config firewall"
+  sudo systemctl start firewalld
+  sudo firewall-cmd --zone=public --permanent --add-port=${UI_PORT}/tcp
+  sudo firewall-cmd --reload
+fi
 
 print_log "Wait till ui api is ready"
 wait_for_url_and_run "$(minikube service ${UI_SERVICE_NAME} --url -n assisted-installer)" "echo \"waiting for ${UI_SERVICE_NAME}\""
 
 print_log "Starting port forwarding for deployment/${UI_SERVICE_NAME}"
-
-wait_for_url_and_run "http://${NODE_IP}:${UI_PORT}" "spawn_port_forwarding_command ${UI_SERVICE_NAME} ${UI_PORT}"
-
-print_log "OCP METAL UI can be reached at http://${NODE_IP}:${UI_PORT}"
+if  [ -z "${NO_EXTERNAL_PORT}" ];then
+  wait_for_url_and_run "http://${NODE_IP}:${UI_PORT}" "spawn_port_forwarding_command ${UI_SERVICE_NAME} ${UI_PORT}"
+  print_log "OCP METAL UI can be reached at http://${NODE_IP}:${UI_PORT}"
+fi
 print_log "Done"
