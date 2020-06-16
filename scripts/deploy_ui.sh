@@ -9,28 +9,32 @@ export KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 export CONTAINER_COMMAND=${CONTAINER_COMMAND:-podman}
 export UI_DEPLOY_FILE=build/ui_deploy.yaml
 export UI_SERVICE_NAME=ocp-metal-ui
+export NO_UI=${NO_UI:-n}
+if [ "${CONTAINER_COMMAND}" = "podman" ]; then
+  export PODMAN_FLAGS="--pull=always"
+else
+  export PODMAN_FLAGS=""
+fi
+export NO_EXTERNAL_PORT=${NO_EXTERNAL_PORT:-n}
+
+
+if  [ "${NO_UI}" != "n" ];then
+    exit 0
+fi
 
 mkdir -p build
 #In case deploy tag is empty use latest
 [[ -z "${DEPLOY_TAG}" ]] && export DEPLOY_TAG=latest 
 
 print_log "Starting ui"
-${CONTAINER_COMMAND} run --pull=always --rm quay.io/ocpmetal/ocp-metal-ui:${DEPLOY_TAG} /deploy/deploy_config.sh -i quay.io/ocpmetal/ocp-metal-ui:${DEPLOY_TAG} > ${UI_DEPLOY_FILE}
-kubectl --kubeconfig=${KUBECONFIG} apply -f ${UI_DEPLOY_FILE}
 
-if  [ -z "${NO_EXTERNAL_PORT}" ];then
-  print_log "Config firewall"
-  sudo systemctl start firewalld
-  sudo firewall-cmd --zone=public --permanent --add-port=${UI_PORT}/tcp
-  sudo firewall-cmd --reload
-fi
+${CONTAINER_COMMAND} run ${PODMAN_FLAGS} --rm quay.io/ocpmetal/ocp-metal-ui:latest /deploy/deploy_config.sh -i quay.io/ocpmetal/ocp-metal-ui:${DEPLOY_TAG} > ${UI_DEPLOY_FILE}
+kubectl --kubeconfig=${KUBECONFIG} apply -f ${UI_DEPLOY_FILE}
 
 print_log "Wait till ui api is ready"
 wait_for_url_and_run "$(minikube service ${UI_SERVICE_NAME} --url -n assisted-installer)" "echo \"waiting for ${UI_SERVICE_NAME}\""
 
 print_log "Starting port forwarding for deployment/${UI_SERVICE_NAME}"
-if  [ -z "${NO_EXTERNAL_PORT}" ];then
-  wait_for_url_and_run "http://${NODE_IP}:${UI_PORT}" "spawn_port_forwarding_command ${UI_SERVICE_NAME} ${UI_PORT}"
-  print_log "OCP METAL UI can be reached at http://${NODE_IP}:${UI_PORT}"
-fi
+wait_for_url_and_run "http://${NODE_IP}:${UI_PORT}" "spawn_port_forwarding_command ${UI_SERVICE_NAME} ${UI_PORT}"
+print_log "OCP METAL UI can be reached at http://${NODE_IP}:${UI_PORT}"
 print_log "Done"

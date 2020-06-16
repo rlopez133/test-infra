@@ -18,7 +18,7 @@ function spawn_port_forwarding_command() {
   service_name=$1
   external_port=$2
 
-  cat << EOF > /etc/xinetd.d/${service_name}
+  cat << EOF > build/xinetd-${service_name}
 service ${service_name}
 {
   flags		= IPv4
@@ -34,9 +34,9 @@ service ${service_name}
   per_source	= UNLIMITED
 }
 EOF
-
-  systemctl start xinetd
-  systemctl reload xinetd
+  sudo mv build/xinetd-${service_name} /etc/xinetd.d/${service_name} --force
+  sudo systemctl start xinetd
+  sudo systemctl reload xinetd
 }
 
 function run_in_background() {
@@ -44,7 +44,7 @@ function run_in_background() {
 }
 
 function kill_all_port_forwardings() {
-  systemctl stop xinetd
+  sudo systemctl stop xinetd
 }
 
 function get_main_ip() {
