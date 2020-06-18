@@ -15,8 +15,6 @@ if [ "${CONTAINER_COMMAND}" = "podman" ]; then
 else
   export PODMAN_FLAGS=""
 fi
-export NO_EXTERNAL_PORT=${NO_EXTERNAL_PORT:-n}
-
 
 if  [ "${NO_UI}" != "n" ];then
     exit 0
